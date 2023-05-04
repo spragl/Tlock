@@ -65,10 +65,12 @@ Configuration files must start with a "tlock 0" line. Empty lines are allowed an
 - `marker` For the marker (prefix) that all tlock directory names will get.
 - `patience` For the time that the take method will wait for a lock release.
 
+```
     tlock 0
     # Example configuration file for tlock.
     dir      /var/loglocks/
     patience 7.5
+```
 
 ## TOKENS
 
