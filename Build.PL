@@ -20,7 +20,7 @@ my $class = Module::Build->subclass(
 # Sys::Tlock::Config.pm
 # Do not modify. Overwritten at install time.
 
-package Config;
+package Sys::Tlock::Config;
 use strict;
 
 our \$home = '${home}';
@@ -58,6 +58,7 @@ $class->new(
         } ,
     configure_requires => {
         'Module::Build' => 0.42 ,
+        'File::Copy'    => 0 ,
         } ,
     meta_merge => {
         resources => {

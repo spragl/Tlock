@@ -10,7 +10,7 @@ use experimental qw(signatures);
 use strict;
 # use Exporter qw(import);
 
-our $VERSION = 0.12;
+our $VERSION = 1.00;
 
 use File::Basename qw(basename dirname);
 use Time::HiRes qw(sleep);
@@ -42,11 +42,11 @@ our $patience;
 # --------------------------------------------------------------------------- #
 # Initialization and import.
 
-my $home = $Config::home;
+my $home = $Sys::Tlock::Config::home;
 
 
 my $pnorm = sub( $p ) {
-    return $p = s/([^\/])$/$1\//r;
+    return $p =~ s/([^\/])$/$1\//r;
     };
 
 
@@ -54,7 +54,7 @@ my $conf_file;
 my $conf_was_read;
 my $read_conf_file = sub {
     return undef if not defined $conf_file;
-    return undef if not -f $conf_file;
+    die 'Could not find configuration file "'.$conf_file.'".' if not -f $conf_file;
 
     open my $cf , '<' , $conf_file
         or die 'Could not read configuration file "'.$conf_file.'".';
@@ -62,8 +62,8 @@ my $read_conf_file = sub {
     close $cf;
     die 'No tlock preface line in configuration file "'.$conf_file.'".'
         if $cf[0] !~ m/^tlock\s+(\d+)\s*$/;
-    die 'Configuration file is too new for your tlock installation.'
-        if $1 > 0;
+    die 'Configuration file "'.$conf_file.'" is too new for your tlock installation.'
+        if $1 > 1;
     shift @cf;
     for my $line (map {s/^\s+//r} map {s/\s+$//r} map {s/#.*//r} @cf) {
         if ($line =~ m/^dir\s+(\S.*)$/) {
@@ -74,6 +74,9 @@ my $read_conf_file = sub {
             }
         elsif ($line =~ m/^patience\s+(\S.*)$/) {
             $patience //= $1;
+            }
+        elsif ($line =~ m/\S/) {
+            die 'Configuration line "'.$line.'" is not valid.';
             };
         };
 
@@ -86,9 +89,12 @@ my $do_settings = sub { # is called by import
     $dir //= $pnorm->($ENV{tlock_dir});
     $marker //= $ENV{tlock_marker};
     $patience //= $ENV{tlock_patience};
-    $conf_file = $ENV{tlock_conf}; $read_conf_file->();
-    $conf_file = '/etc/tlock.conf'; $read_conf_file->();
-    $conf_file = $home.'default.conf'; $read_conf_file->();
+    $conf_file = $ENV{tlock_conf};
+    $read_conf_file->();
+    $conf_file = '/etc/tlock.conf';
+    $read_conf_file->() if -f $conf_file;
+    $conf_file = $home.'default.conf';
+    $read_conf_file->();
     $dir //= $home.'locks/';
     die 'The tlock installation has been messed up.' if not $conf_was_read;
     die 'The lock directory "'.$dir.'" not found.' if not -d $dir;
@@ -276,7 +282,7 @@ sub tlock_zing() {
         basename($d) =~ m/^\Q${marker}\E(?:|_)\.([a-zA-Z0-9\-\_\.]+)$/ or next;
         my $label = $1;
         tlock_take($label,10) or next;
-        tlock_release($_,$label);
+        tlock_release($label,$_);
         };
     };
 
@@ -319,7 +325,7 @@ Sys::Tlock - Locking with timeouts.
 
 =head1 VERSION
 
-0.12
+1.00
 
 =head1 SYNOPSIS
 
@@ -328,13 +334,13 @@ Sys::Tlock - Locking with timeouts.
     print "tlock patience is ${patience}\n";
 
     # taking a tlock for 5 minutes
-    tlock_take('logindex',300) || die 'Failed taking the tlock.';
+    tlock_take('logwork',300) || die 'Failed taking the tlock.';
     my $token = $_;
 
     move_old_index();
 
     # hand over to that other script
-    exec( "/usr/local/loganalyze/loganalyze" , $token );
+    exec( "/usr/local/logrotate/logrotate.pl" , $token );
 
     -----------------------------------------------------------
 
@@ -343,13 +349,16 @@ Sys::Tlock - Locking with timeouts.
 
     # checking lock is alive
     my $t = $ARGV[0];
-    die 'Tlock not taken.' if not tlock_alive('logrotate',$t);
+    die 'Tlock not taken.' if not tlock_alive('logwork',$t);
+
+    # Make time for the fancy rotation task.
+    tlock_renew('logwork',600);
 
     do_fancy_log_rotation(547);
-    system( './clean-up.sh' , $t ) or warn 'Clean-up failed.';
+    system( './clean-up.sh' , $t );
 
     # releasing the lock
-    tlock_release('logrotate',$t);
+    tlock_release('logwork',$t);
 
 =head1 DESCRIPTION
 
@@ -357,7 +366,7 @@ This module is handling tlocks, advisory locks with timeouts.
 
 They are implemented as simple directories that are created and deleted in the lock directory.
 
-A distant predecessor to this module was written many years ago as a kludge to make locking work properly on a Windows server. But it turned out to be very handy to have tlocks in the filesystem, giving you an at-a-glance overview of them. Even the non-scripting sysadmins could easily view and manipulate tlocks.
+A distant predecessor to this module was written many years ago as a kludge to make locking work properly on a Windows server. But it turned out to be very handy to have tlocks in the filesystem, giving you an at-a-glance overview of them. And giving the non-scripting sysadmins easy access to view and manipulate them.
 
 The module is designed to allow separate programs to use the same tlocks between them. Even programs written in different languages. To do this safely, tlocks are paired with a lock token.
 
@@ -367,17 +376,17 @@ The configuration parameters are set using this process:
 
 =over
 
-=item 1: Directly in the use statement of your script, with keys "dir", "marker" and "patience".
+=item 1. Directly in the use statement of your script, with keys "dir", "marker" and "patience".
 
-=item 2: Configuration file given by a "conf" key in the use statement of your script.
+=item 2. Configuration file given by a "conf" key in the use statement of your script.
 
-=item 3: Environment variables "tlock_dir", "tlock_marker" and "tlock_patience".
+=item 3. Environment variables "tlock_dir", "tlock_marker" and "tlock_patience".
 
-=item 4: Configuration file given by the environment variable "tlock_conf".
+=item 4. Configuration file given by the environment variable "tlock_conf".
 
-=item 5: Configuration file "/etc/tlock.conf".
+=item 5. Configuration file "/etc/tlock.conf".
 
-=item 6: Default configuration.
+=item 6. Default configuration.
 
 =back
 
@@ -385,15 +394,11 @@ On top of this, you can import the $dir, $marker and $patience variables and cha
 
 Configuration files must start with a "tlock 0" line. Empty lines are allowed and so are comments starting with the # character. There are three directives:
 
-=over
+C<dir> For setting the lock directory. Write the full path.
 
-=item C<dir> For setting the lock directory. Write the full path.
+C<marker> For the marker (prefix) that all tlock directory names will get.
 
-=item C<marker> For the marker (prefix) that all tlock directory names will get.
-
-=item C<patience> For the time that the take method will wait for a lock release.
-
-=back
+C<patience> For the time that the take method will wait for a lock release.
 
     tlock 0
     # Example configuration file for tlock.
@@ -543,7 +548,9 @@ flock
 =head1 LICENSE & COPYRIGHT
 
 (c) 2022-2023 Bjoern Hee
+
 Licensed under the Apache License, version 2.0
+
 https://www.apache.org/licenses/LICENSE-2.0.txt
 
 =cut

@@ -10,11 +10,26 @@ use experimental qw(signatures);
 $| = 1;
 
 use Sys::Tlock;
+use Getopt::Std qw(getopts);
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 sub usage( $x ) { print STDERR q[
 
+tlock [-<option> [parameter]] <command> [parameter ...]
+
 Locking with timeouts.
+
+Options:
+
+-d <d>  Set the lock directory to <d>.
+-h      Show help text.
+-m <m>  Set marker to <m>. Marker is the prefix tlock names will have in the
+        file system.
+-p <p>  Set patience to <p>. Patience is the time that tlock will try to get a
+        lock that is already taken.
+-V      Show the version.
+
+Commands:
 
 tlock take <label> <timeout> [<patience>]
     Takes the specified tlock if possible. Returns the token value.
@@ -37,14 +52,37 @@ tlock expiry <label>
 tlock zing
     Cleans up the lock directory.
 
-tlock --help
-    Writes out this help text.
-
-] =~ s/^\s+//r =~ s/\s+$/\n/r ; exit $x;};
+] =~ s/^\s+/\n/r =~ s/\s+$/\n\n/r ; exit $x;};
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
-usage(1) if scalar @ARGV == 0;
+my $opt = {};
+getopts('hVd:m:p:',$opt) or usage(1);
 
+if ($opt->{h}) {
+    usage(0);
+    }
+elsif ($opt->{V}) {
+    print 'tlock v'.$Sys::Tlock::VERSION."\n";
+    exit 0;
+    };
+
+if (exists $opt->{d}) {
+    die 'The lock directory "'.$opt->{d}.'" not found.' if not -d $opt->{d};
+    $Sys::Tlock::dir = $opt->{d};
+    };
+if (exists $opt->{m}) {
+    die 'Bad first character in marker.' if $opt->{m} !~ m/^[a-zA-Z]/;
+    die 'Bad last character in marker.' if $opt->{m} !~ m/[a-zA-Z0-9]$/;
+    die 'Bad character in marker.' if $opt->{m} =~ m/[^a-zA-Z0-9\-\_]/;
+    $Sys::Tlock::marker = $opt->{m};
+    };
+if (exists $opt->{p}) {
+    die 'Patience set to bad value "'.$opt->{p}.'".' if $opt->{p} !~ m/^\d+(?:\.\d+)?$/;
+    die 'Patience set to bad value "0".' if $opt->{p} == 0;
+    $Sys::Tlock::patience = $opt->{p};
+    };
+
+usage(1) if scalar @ARGV == 0;
 my $cmd = shift @ARGV;
 
 if ($cmd eq 'take') {
@@ -78,9 +116,6 @@ elsif ($cmd eq 'expiry') {
 elsif ($cmd eq 'zing') {
     usage(1) if scalar @ARGV != 0;
     tlock_zing;
-    }
-elsif ($cmd eq '--help') {
-    usage(0);
     }
 else {
     usage(1);
