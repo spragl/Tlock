@@ -53,51 +53,65 @@ There also are some very shortlived directories named "$marker_.$label". They ar
 
 <h2>Command line</h2>
 
-<p>tlock [-<option> [parameter]] <command> [parameter ...]</p>
+<p>tlock &lbrack;-&lt;option&gt; &lbrack;parameter&rbrack;&rbrack; &lt;command&gt; &lbrack;parameter ...&rbrack;</p>
 
 <h2>Options</h2>
 
-<p>-d <d>  Set the lock directory to <d>.
--h      Show help text.
--m <m>  Set marker to <m>.
--p <p>  Set patience to <p>.
--V      Show the version.</p>
+<p>-d &lt;d&gt;  Set the lock directory to &lt;d&gt;.</p>
+
+<p>-h      Show help text.</p>
+
+<p>-m &lt;m&gt;  Set marker to &lt;m&gt;.</p>
+
+<p>-p &lt;p&gt;  Set patience to &lt;p&gt;.</p>
+
+<p>-V      Show the version.</p>
 
 <h2>Commands</h2>
 
-<p><strong>tlock take <label> <timeout> [<patience>]</strong>
-Takes the specified tlock if possible. Returns the token value.</p>
+<p><strong>tlock take &lt;label&gt; &lt;timeout&gt; &lbrack;&lt;patience&gt;&rbrack;</strong></p>
 
-<p><strong>tlock renew <label> <token> <timeout></strong>
-Renews the tlock.</p>
+<p>Takes the specified tlock if possible. Returns the token value.</p>
 
-<p><strong>tlock release <label> <token></strong>
-Releases the tlock.</p>
+<p><strong>tlock renew &lt;label&gt; &lt;token&gt; &lt;timeout&gt;</strong></p>
 
-<p><strong>tlock alive <label> <token></strong>
-Returns true if the specified tlock is still alive.</p>
+<p>Renews the tlock.</p>
 
-<p><strong>tlock taken <label></strong>
-Returns true if any tlock with the given label, is alive.</p>
+<p><strong>tlock release &lt;label&gt; &lt;token&gt;</strong></p>
 
-<p><strong>tlock expiry <label></strong>
-Returns the time when the tlock with the given label will expire.</p>
+<p>Releases the tlock.</p>
 
-<p><strong>tlock zing</strong>
-Cleans up the lock directory.</p>
+<p><strong>tlock alive &lt;label&gt; &lt;token&gt;</strong></p>
+
+<p>Returns true if the specified tlock is still alive.</p>
+
+<p><strong>tlock taken &lt;label&gt;</strong></p>
+
+<p>Returns true if any tlock with the given label, is alive.</p>
+
+<p><strong>tlock expiry &lt;label&gt;</strong></p>
+
+<p>Returns the time when the tlock with the given label will expire.</p>
+
+<p><strong>tlock zing</strong></p>
+
+<p>Cleans up the lock directory.</p>
 
 <h2>Parameters</h2>
 
-<p><strong>dir</strong>
-The directory containing the tlocks.</p>
+<p><strong>dir</strong></p>
 
-<p><strong>marker</strong>
-The common prefix of the directory names used for tlocks.</p>
+<p>The directory containing the tlocks.</p>
+
+<p><strong>marker</strong></p>
+
+<p>The common prefix of the directory names used for tlocks.</p>
 
 <p>Prefixes can be any non-empty string consisting of letters a-z or A-Z, digits 0-9, dashes "-" and underscores "_" (PCRE: [a-zA-Z0-9-_]+). First character has to be a letter, and last character a letter or digit.</p>
 
-<p><strong>patience</strong>
-Patience is the time a method will try to take or change a tlock, before it gives up. For example when tlock_take tries to take a tlock that is already taken, it is the number of seconds it should wait for that tlock to be released before giving up.</p>
+<p><strong>patience</strong></p>
+
+<p>Patience is the time a method will try to take or change a tlock, before it gives up. For example when tlock_take tries to take a tlock that is already taken, it is the number of seconds it should wait for that tlock to be released before giving up.</p>
 
 <p>Default patience value is 2.5 seconds.,</p>
 
