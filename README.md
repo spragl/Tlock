@@ -54,50 +54,64 @@ There also are some very shortlived directories named "$marker_.$label". They ar
 
 ## Command line
 
-tlock [-<option> [parameter]] <command> [parameter ...]
+tlock &lbrack;-&lt;option&gt; &lbrack;parameter&rbrack;&rbrack; &lt;command&gt; &lbrack;parameter ...&rbrack;
 
 ## Options
 
--d <d>  Set the lock directory to <d>.
+-d &lt;d&gt;  Set the lock directory to &lt;d&gt;.
+
 -h      Show help text.
--m <m>  Set marker to <m>.
--p <p>  Set patience to <p>.
+
+-m &lt;m&gt;  Set marker to &lt;m&gt;.
+
+-p &lt;p&gt;  Set patience to &lt;p&gt;.
+
 -V      Show the version.
 
 ## Commands
 
-**tlock take <label> <timeout> [<patience>]**
+**tlock take &lt;label&gt; &lt;timeout&gt; &lbrack;&lt;patience&gt;&rbrack;**
+
 Takes the specified tlock if possible. Returns the token value.
 
-**tlock renew <label> <token> <timeout>**
+**tlock renew &lt;label&gt; &lt;token&gt; &lt;timeout&gt;**
+
 Renews the tlock.
 
-**tlock release <label> <token>**
+**tlock release &lt;label&gt; &lt;token&gt;**
+
 Releases the tlock.
 
-**tlock alive <label> <token>**
+**tlock alive &lt;label&gt; &lt;token&gt;**
+
 Returns true if the specified tlock is still alive.
 
-**tlock taken <label>**
+**tlock taken &lt;label&gt;**
+
 Returns true if any tlock with the given label, is alive.
 
-**tlock expiry <label>**
+**tlock expiry &lt;label&gt;**
+
 Returns the time when the tlock with the given label will expire.
 
 **tlock zing**
+
 Cleans up the lock directory.
 
 ## Parameters
 
 **dir**
+
 The directory containing the tlocks.
 
 **marker**
+
 The common prefix of the directory names used for tlocks.
 
 Prefixes can be any non-empty string consisting of letters a-z or A-Z, digits 0-9, dashes "-" and underscores "_" (PCRE: [a-zA-Z0-9\-\_]+). First character has to be a letter, and last character a letter or digit.
 
 **patience**
+
 Patience is the time a method will try to take or change a tlock, before it gives up. For example when tlock_take tries to take a tlock that is already taken, it is the number of seconds it should wait for that tlock to be released before giving up.
 
 Default patience value is 2.5 seconds.,
