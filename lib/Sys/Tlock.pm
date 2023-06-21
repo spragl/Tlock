@@ -10,7 +10,7 @@ use experimental qw(signatures);
 use strict;
 # use Exporter qw(import);
 
-our $VERSION = 1.00;
+our $VERSION = 1.01;
 
 use File::Basename qw(basename dirname);
 use Time::HiRes qw(sleep);
@@ -57,7 +57,7 @@ my $read_conf_file = sub {
     die 'Could not find configuration file "'.$conf_file.'".' if not -f $conf_file;
 
     open my $cf , '<' , $conf_file
-        or die 'Could not read configuration file "'.$conf_file.'".';
+      || die 'Could not read configuration file "'.$conf_file.'".';
     my @cf = <$cf>;
     close $cf;
     die 'No tlock preface line in configuration file "'.$conf_file.'".'
@@ -108,7 +108,8 @@ my $do_settings = sub { # is called by import
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
 sub import {
-    my $modname = shift;
+    my $mynsp = shift;
+    my $calnsp = caller;
 
     my sub amp( $s ) {
         return undef if not defined $s;
@@ -119,7 +120,7 @@ sub import {
         qw(conf dir marker patience) , @EXPORT , @EXPORT_OK;
     my sub exportcheck( $s ) {
         return 1 if $check{$s};
-        die '"'.$s.'" not exported by module '.$modname.'.'."\n";
+        die '"'.$s.'" not exported by module '.$mynsp.'.'."\n";
         };
 
     my $imports = 0;
@@ -127,10 +128,10 @@ sub import {
     while ($_ = amp shift) {
         exportcheck($_);
         $imports++;
-        if    ( m/^\$(.*)$/ ) { *{"main::$1"} = \$$1; }
-        elsif ( m/^\@(.*)$/ ) { *{"main::$1"} = \@$1; }
-        elsif ( m/^\%(.*)$/ ) { *{"main::$1"} = \%$1; }
-        elsif ( m/^\&(.*)$/ ) { *{"main::$1"} = \&$1; }
+        if    ( m/^\$(.*)$/ ) { *{"${calnsp}::$1"} = \$$1; }
+        elsif ( m/^\@(.*)$/ ) { *{"${calnsp}::$1"} = \@$1; }
+        elsif ( m/^\%(.*)$/ ) { *{"${calnsp}::$1"} = \%$1; }
+        elsif ( m/^\&(.*)$/ ) { *{"${calnsp}::$1"} = \&$1; }
         else {
             die 'No '.$_.' value is given.' if scalar @_ == 0;
             $imports--;
@@ -145,10 +146,10 @@ sub import {
     if ($imports == 0) {
         no strict "refs";
         for (map {amp($_)} @EXPORT) {
-            if    ( m/^\$(.*)$/ ) { *{"main::$1"} = \$$1; }
-            elsif ( m/^\@(.*)$/ ) { *{"main::$1"} = \@$1; }
-            elsif ( m/^\%(.*)$/ ) { *{"main::$1"} = \%$1; }
-            elsif ( m/^\&(.*)$/ ) { *{"main::$1"} = \&$1; };
+            if    ( m/^\$(.*)$/ ) { *{"${calnsp}::$1"} = \$$1; }
+            elsif ( m/^\@(.*)$/ ) { *{"${calnsp}::$1"} = \@$1; }
+            elsif ( m/^\%(.*)$/ ) { *{"${calnsp}::$1"} = \%$1; }
+            elsif ( m/^\&(.*)$/ ) { *{"${calnsp}::$1"} = \&$1; };
             };
         use strict "refs";
         };
@@ -188,7 +189,7 @@ my $take_master = sub( $label , $p = $patience ) {
     while (1)
       { my $rv = mkdir $dir.$marker.'_.'.$label;
         last if $rv == 1; # second order success
-        return if time - $now > $p;
+        return undef if time - $now > $p;
         sleep(0.05);
       };
 
@@ -208,7 +209,7 @@ sub tlock_take( $label , $timeout , $p = $patience ) {
     return undef if $label !~ m/^[a-zA-Z0-9\-\_\.]+$/;
     return undef if $timeout <= 0;
 
-    $take_master->( $label ) or return;
+    $take_master->( $label ) || return undef;
 
     my $t;
     if ( not tlock_taken($label) ) {
@@ -228,7 +229,7 @@ sub tlock_take( $label , $timeout , $p = $patience ) {
 sub tlock_renew( $label , $token , $timeout ) {
 # Set a new timeout, counting from now, for the given lock.
     return undef if $timeout <= 0;
-    $take_master->( $label ) or return undef;
+    $take_master->( $label ) || return undef;
     utime undef , time - $token + $timeout , $tdn->($label).'/d' if tlock_alive($label,$token);
     $release_master->( $label );
     return 1;
@@ -237,7 +238,7 @@ sub tlock_renew( $label , $token , $timeout ) {
 
 sub tlock_release( $label , $token ) {
 # Remove the lock.
-    $take_master->( $label ) or return undef;
+    $take_master->( $label ) || return undef;
     my $t = tlock_token($label);
     if ($token == $t) {
         my $d = $tdn->($label);
@@ -279,9 +280,9 @@ sub tlock_zing() {
 # Clean up all locks in the lock directory.
     my @dlist = glob($dir.'*');
     while (my $d = shift @dlist) {
-        basename($d) =~ m/^\Q${marker}\E(?:|_)\.([a-zA-Z0-9\-\_\.]+)$/ or next;
+        basename($d) =~ m/^\Q${marker}\E(?:|_)\.([a-zA-Z0-9\-\_\.]+)$/ || next;
         my $label = $1;
-        tlock_take($label,10) or next;
+        tlock_take($label,10) || next;
         tlock_release($label,$_);
         };
     };
@@ -296,7 +297,7 @@ sub tlock_tstart( $label ) {
 
 sub tlock_release_careless( $label ) {
 # Remove the lock without caring about the token.
-    $take_master->( $label ) or return undef;
+    $take_master->( $label ) || return undef;
     my $d = $tdn->($label);
     rmdir $d.'/d' if -e $d.'/d';
     rmdir $d      if -e $d;
@@ -325,7 +326,7 @@ Sys::Tlock - Locking with timeouts.
 
 =head1 VERSION
 
-1.00
+1.01
 
 =head1 SYNOPSIS
 
