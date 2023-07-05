@@ -1,6 +1,6 @@
 # Sys::Tlock.pm
 # Locking with timeouts.
-# (c) 2022-2023 Bjørn Hee
+# (c) 2022-2023 Bjrn Hee
 # Licensed under the Apache License, version 2.0
 # https://www.apache.org/licenses/LICENSE-2.0.txt
 
@@ -10,7 +10,7 @@ use experimental qw(signatures);
 use strict;
 # use Exporter qw(import);
 
-our $VERSION = 1.01;
+our $VERSION = 1.02;
 
 use File::Basename qw(basename dirname);
 use Time::HiRes qw(sleep);
@@ -53,7 +53,7 @@ my $pnorm = sub( $p ) {
 my $conf_file;
 my $conf_was_read;
 my $read_conf_file = sub {
-    return undef if not defined $conf_file;
+    return if not defined $conf_file;
     die 'Could not find configuration file "'.$conf_file.'".' if not -f $conf_file;
 
     open my $cf , '<' , $conf_file
@@ -111,22 +111,22 @@ sub import {
     my $mynsp = shift;
     my $calnsp = caller;
 
-    my sub amp( $s ) {
-        return undef if not defined $s;
+    my $amp = sub( $s ) {
+        return if not defined $s;
         return $s if $s =~ m/^(?:conf|dir|marker|patience)$/;
         return $s =~ s/^([^\$\@\%\&])/\&$1/r;
         };
-    my %check = map {(amp($_),1)}
+    my %check = map {($amp->($_),1)}
         qw(conf dir marker patience) , @EXPORT , @EXPORT_OK;
-    my sub exportcheck( $s ) {
+    my $exportcheck = sub( $s ) {
         return 1 if $check{$s};
         die '"'.$s.'" not exported by module '.$mynsp.'.'."\n";
         };
 
     my $imports = 0;
     no strict "refs";
-    while ($_ = amp shift) {
-        exportcheck($_);
+    while ($_ = $amp->(shift) ) {
+        $exportcheck->($_);
         $imports++;
         if    ( m/^\$(.*)$/ ) { *{"${calnsp}::$1"} = \$$1; }
         elsif ( m/^\@(.*)$/ ) { *{"${calnsp}::$1"} = \@$1; }
@@ -145,7 +145,7 @@ sub import {
 
     if ($imports == 0) {
         no strict "refs";
-        for (map {amp($_)} @EXPORT) {
+        for (map {$amp->($_)} @EXPORT) {
             if    ( m/^\$(.*)$/ ) { *{"${calnsp}::$1"} = \$$1; }
             elsif ( m/^\@(.*)$/ ) { *{"${calnsp}::$1"} = \@$1; }
             elsif ( m/^\%(.*)$/ ) { *{"${calnsp}::$1"} = \%$1; }
@@ -189,7 +189,7 @@ my $take_master = sub( $label , $p = $patience ) {
     while (1)
       { my $rv = mkdir $dir.$marker.'_.'.$label;
         last if $rv == 1; # second order success
-        return undef if time - $now > $p;
+        return if time - $now > $p;
         sleep(0.05);
       };
 
@@ -206,10 +206,10 @@ my $release_master = sub( $label ) {
 sub tlock_take( $label , $timeout , $p = $patience ) {
 # Take the requested lock and give it the requested timeout, return token.
 
-    return undef if $label !~ m/^[a-zA-Z0-9\-\_\.]+$/;
-    return undef if $timeout <= 0;
+    return if $label !~ m/^[a-zA-Z0-9\-\_\.]+$/;
+    return if $timeout <= 0;
 
-    $take_master->( $label ) || return undef;
+    $take_master->( $label ) || return;
 
     my $t;
     if ( not tlock_taken($label) ) {
@@ -228,8 +228,8 @@ sub tlock_take( $label , $timeout , $p = $patience ) {
 
 sub tlock_renew( $label , $token , $timeout ) {
 # Set a new timeout, counting from now, for the given lock.
-    return undef if $timeout <= 0;
-    $take_master->( $label ) || return undef;
+    return if $timeout <= 0;
+    $take_master->( $label ) || return;
     utime undef , time - $token + $timeout , $tdn->($label).'/d' if tlock_alive($label,$token);
     $release_master->( $label );
     return 1;
@@ -238,7 +238,7 @@ sub tlock_renew( $label , $token , $timeout ) {
 
 sub tlock_release( $label , $token ) {
 # Remove the lock.
-    $take_master->( $label ) || return undef;
+    $take_master->( $label ) || return;
     my $t = tlock_token($label);
     if ($token == $t) {
         my $d = $tdn->($label);
@@ -253,15 +253,15 @@ sub tlock_release( $label , $token ) {
 sub tlock_alive( $label , $token ) {
 # True if the lock with the given token is still taken.
     my $t = tlock_token($label);
-    return undef if not defined $t;
+    return if not defined $t;
     return 1 if $token == $t;
-    return undef;
+    return;
     };
 
 
 sub tlock_taken( $label ) {
 # True if the lock is taken.
-    return undef if not defined tlock_expiry($label);
+    return if not defined tlock_expiry($label);
     return 1;
   };
 
@@ -269,7 +269,7 @@ sub tlock_taken( $label ) {
 sub tlock_expiry( $label ) {
 # Timestamp for when the lock expires.
     my $d = $tdn->($label);
-    return undef if not -e $d;
+    return if not -e $d;
     my $t = (stat($d))[9] + (stat($d.'/d'))[9];
     $t = undef if $t < time;
     return $t;
@@ -297,7 +297,7 @@ sub tlock_tstart( $label ) {
 
 sub tlock_release_careless( $label ) {
 # Remove the lock without caring about the token.
-    $take_master->( $label ) || return undef;
+    $take_master->( $label ) || return;
     my $d = $tdn->($label);
     rmdir $d.'/d' if -e $d.'/d';
     rmdir $d      if -e $d;
@@ -309,8 +309,8 @@ sub tlock_release_careless( $label ) {
 sub tlock_token( $label ) {
 # Token associated with the lock.
     my $d = $tdn->($label);
-    return undef if not -e $d;
-    return undef if tlock_expiry($label) < time; # timed out
+    return if not -e $d;
+    return if tlock_expiry($label) < time; # timed out
     return (stat($d))[9];
     };
 
