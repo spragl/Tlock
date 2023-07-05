@@ -326,7 +326,7 @@ Sys::Tlock - Locking with timeouts.
 
 =head1 VERSION
 
-1.01
+1.02
 
 =head1 SYNOPSIS
 
