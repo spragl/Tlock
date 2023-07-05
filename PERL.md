@@ -4,7 +4,7 @@ Sys::Tlock - Locking with timeouts.
 
 # VERSION
 
-1.01
+1.02
 
 # SYNOPSIS
 
