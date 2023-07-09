@@ -28,7 +28,7 @@ our \$home = '${home}';
 1;
 __END__
 
-                ] =~ s/^\s+//r =~ s/\s+$//r;
+            ] =~ s/^\s+//r =~ s/\s+$//r;
             close $cm;
 
             $self->SUPER::ACTION_install;

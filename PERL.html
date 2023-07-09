@@ -35,7 +35,7 @@
 
 <h1 id="VERSION">VERSION</h1>
 
-<p>1.02</p>
+<p>1.03</p>
 
 <h1 id="SYNOPSIS">SYNOPSIS</h1>
 
@@ -114,7 +114,7 @@
 
 <p>On top of this, you can import the $dir, $marker and $patience variables and change them in your script. But that is a recipe for disaster, so know what you do, if you go that way.</p>
 
-<p>Configuration files must start with a &quot;tlock 0&quot; line. Empty lines are allowed and so are comments starting with the # character. There are three directives:</p>
+<p>Configuration files must start with a &quot;tlock 1&quot; line. Empty lines are allowed and so are comments starting with the # character. There are three directives:</p>
 
 <p><code>dir</code> For setting the lock directory. Write the full path.</p>
 
@@ -122,7 +122,7 @@
 
 <p><code>patience</code> For the time that the take method will wait for a lock release.</p>
 
-<pre><code>    tlock 0
+<pre><code>    tlock 1
     # Example configuration file for tlock.
     dir      /var/loglocks/
     patience 7.5</code></pre>

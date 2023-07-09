@@ -4,7 +4,7 @@ Sys::Tlock - Locking with timeouts.
 
 # VERSION
 
-1.02
+1.03
 
 # SYNOPSIS
 
@@ -62,7 +62,7 @@ The configuration parameters are set using this process:
 
 On top of this, you can import the $dir, $marker and $patience variables and change them in your script. But that is a recipe for disaster, so know what you do, if you go that way.
 
-Configuration files must start with a "tlock 0" line. Empty lines are allowed and so are comments starting with the # character. There are three directives:
+Configuration files must start with a "tlock 1" line. Empty lines are allowed and so are comments starting with the # character. There are three directives:
 
 `dir` For setting the lock directory. Write the full path.
 
@@ -70,7 +70,7 @@ Configuration files must start with a "tlock 0" line. Empty lines are allowed an
 
 `patience` For the time that the take method will wait for a lock release.
 
-    tlock 0
+    tlock 1
     # Example configuration file for tlock.
     dir      /var/loglocks/
     patience 7.5

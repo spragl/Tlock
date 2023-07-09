@@ -8,6 +8,8 @@ They are implemented as simple directories that are created and deleted in the l
 
 A distant predecessor was written many years ago as a kludge to make locking work properly on a Windows server. But it turned out to be very handy to have tlocks in the filesystem, giving you an at-a-glance overview of them. And giving the non-scripting sysadmins easy access to view and manipulate tlocks.
 
+## Synopsis
+
     # taking a tlock for 5 minutes
     token=$(tlock take 'logwork' 300 || exit 1)
 

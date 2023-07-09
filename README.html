@@ -8,6 +8,8 @@
 
 <p>A distant predecessor was written many years ago as a kludge to make locking work properly on a Windows server. But it turned out to be very handy to have tlocks in the filesystem, giving you an at-a-glance overview of them. And giving the non-scripting sysadmins easy access to view and manipulate tlocks.</p>
 
+<h2>Synopsis</h2>
+
 <pre><code># taking a tlock for 5 minutes
 token=$(tlock take 'logwork' 300 || exit 1)
 

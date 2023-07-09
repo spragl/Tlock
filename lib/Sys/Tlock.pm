@@ -10,13 +10,15 @@ use experimental qw(signatures);
 use strict;
 # use Exporter qw(import);
 
-our $VERSION = 1.02;
+our $VERSION = 1.03;
 
 use File::Basename qw(basename dirname);
 use Time::HiRes qw(sleep);
 use Sys::Tlock::Config;
 
-our @EXPORT = qwac('
+my sub qwac( $s ) {grep{/./} map{split /\s+/} map{s/#.*//r} split/\v+/ , $s;};
+
+our @EXPORT = qwac '
     tlock_take     # Take the requested lock and give it the requested timeout, return a token.
     tlock_renew    # Set a new timeout, counting from now, for the given lock.
     tlock_release  # Remove the lock.
@@ -24,16 +26,16 @@ our @EXPORT = qwac('
     tlock_taken    # True if the lock is taken, with any token.
     tlock_expiry   # Time when the lock expires.
     tlock_zing     # Clean up locks in the lock directory.
-    ');
+    ';
 
-our @EXPORT_OK = qwac('
+our @EXPORT_OK = qwac '
     tlock_release_careless # Remove the lock without caring about the token.
     tlock_token    # Token associated with lock.
     tlock_tstart   # Time when the lock was taken (= token).
     $dir           # The directory containing the locks.
     $marker        # The common prefix of the lock names.
     $patience      # Max waiting time in seconds, when taking a lock that is already taken.
-    ');
+    ';
 
 our $dir;
 our $marker;
@@ -45,14 +47,14 @@ our $patience;
 my $home = $Sys::Tlock::Config::home;
 
 
-my $pnorm = sub( $p ) {
+my sub pnorm( $p ) {
     return $p =~ s/([^\/])$/$1\//r;
     };
 
 
 my $conf_file;
 my $conf_was_read;
-my $read_conf_file = sub {
+my sub read_conf_file() {
     return if not defined $conf_file;
     die 'Could not find configuration file "'.$conf_file.'".' if not -f $conf_file;
 
@@ -67,7 +69,7 @@ my $read_conf_file = sub {
     shift @cf;
     for my $line (map {s/^\s+//r} map {s/\s+$//r} map {s/#.*//r} @cf) {
         if ($line =~ m/^dir\s+(\S.*)$/) {
-            $dir //= $pnorm->($1);
+            $dir //= pnorm($1);
             }
         elsif ($line =~ m/^marker\s+(\S.*)$/) {
             $marker //= $1;
@@ -84,17 +86,17 @@ my $read_conf_file = sub {
     1;};
 
 
-my $do_settings = sub { # is called by import
-    $read_conf_file->();
-    $dir //= $pnorm->($ENV{tlock_dir});
+my sub do_settings() { # is called by import
+    read_conf_file;
+    $dir //= pnorm($ENV{tlock_dir});
     $marker //= $ENV{tlock_marker};
     $patience //= $ENV{tlock_patience};
     $conf_file = $ENV{tlock_conf};
-    $read_conf_file->();
+    read_conf_file;
     $conf_file = '/etc/tlock.conf';
-    $read_conf_file->() if -f $conf_file;
+    read_conf_file if -f $conf_file;
     $conf_file = $home.'default.conf';
-    $read_conf_file->();
+    read_conf_file;
     $dir //= $home.'locks/';
     die 'The tlock installation has been messed up.' if not $conf_was_read;
     die 'The lock directory "'.$dir.'" not found.' if not -d $dir;
@@ -111,22 +113,22 @@ sub import {
     my $mynsp = shift;
     my $calnsp = caller;
 
-    my $amp = sub( $s ) {
-        return if not defined $s;
+    my sub amp( $s ) {
+        return undef if not defined $s;
         return $s if $s =~ m/^(?:conf|dir|marker|patience)$/;
         return $s =~ s/^([^\$\@\%\&])/\&$1/r;
         };
-    my %check = map {($amp->($_),1)}
+    my %check = map {(amp($_),1)}
         qw(conf dir marker patience) , @EXPORT , @EXPORT_OK;
-    my $exportcheck = sub( $s ) {
+    my sub exportcheck( $s ) {
         return 1 if $check{$s};
         die '"'.$s.'" not exported by module '.$mynsp.'.'."\n";
         };
 
     my $imports = 0;
     no strict "refs";
-    while ($_ = $amp->(shift) ) {
-        $exportcheck->($_);
+    while ($_ = amp shift) {
+        exportcheck($_);
         $imports++;
         if    ( m/^\$(.*)$/ ) { *{"${calnsp}::$1"} = \$$1; }
         elsif ( m/^\@(.*)$/ ) { *{"${calnsp}::$1"} = \@$1; }
@@ -145,7 +147,7 @@ sub import {
 
     if ($imports == 0) {
         no strict "refs";
-        for (map {$amp->($_)} @EXPORT) {
+        for (map {amp($_)} @EXPORT) {
             if    ( m/^\$(.*)$/ ) { *{"${calnsp}::$1"} = \$$1; }
             elsif ( m/^\@(.*)$/ ) { *{"${calnsp}::$1"} = \@$1; }
             elsif ( m/^\%(.*)$/ ) { *{"${calnsp}::$1"} = \%$1; }
@@ -154,19 +156,9 @@ sub import {
         use strict "refs";
         };
 
-    $do_settings->();
+    do_settings;
 
     }; # sub import
-
-
-sub qwac( $s ) {
-# qw-like sub, allow comments.
-    return
-        grep {/./}
-        map { split /\s+/ }
-        map { s/#.*//r }
-        split /\v+/ , $s;
-    };
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
 
@@ -175,13 +167,13 @@ sub qwac( $s ) {
 # --------------------------------------------------------------------------- #
 # Helper routines.
 
-my $tdn = sub( $label ) {
+my sub tdn( $label ) {
 # The tlock directory name.
     return $dir.$marker.'.'.$label;
     };
 
 
-my $take_master = sub( $label , $p = $patience ) {
+my sub take_master( $label , $p = $patience ) {
 # Master lock has to be taken for any operation on the lock.
 
     my $now = time;
@@ -196,7 +188,7 @@ my $take_master = sub( $label , $p = $patience ) {
     1;};
 
 
-my $release_master = sub( $label ) {
+my sub release_master( $label ) {
     rmdir $dir.$marker.'_.'.$label;
     1;};
 
@@ -209,11 +201,11 @@ sub tlock_take( $label , $timeout , $p = $patience ) {
     return if $label !~ m/^[a-zA-Z0-9\-\_\.]+$/;
     return if $timeout <= 0;
 
-    $take_master->( $label ) || return;
+    take_master( $label ) || return;
 
     my $t;
     if ( not tlock_taken($label) ) {
-        my $d = $tdn->($label);
+        my $d = tdn($label);
         mkdir $d if not -e $d;
         mkdir $d.'/d' if not -e $d.'/d';
         $t = time;
@@ -221,7 +213,7 @@ sub tlock_take( $label , $timeout , $p = $patience ) {
         utime undef , $timeout , $d.'/d';
         };
 
-    $release_master->( $label );
+    release_master( $label );
     $_ = $t; return $_;
     };
 
@@ -229,23 +221,24 @@ sub tlock_take( $label , $timeout , $p = $patience ) {
 sub tlock_renew( $label , $token , $timeout ) {
 # Set a new timeout, counting from now, for the given lock.
     return if $timeout <= 0;
-    $take_master->( $label ) || return;
-    utime undef , time - $token + $timeout , $tdn->($label).'/d' if tlock_alive($label,$token);
-    $release_master->( $label );
+    take_master( $label ) || return;
+    utime undef , time - $token + $timeout , tdn($label).'/d'
+      if tlock_alive($label,$token);
+    release_master( $label );
     return 1;
     };
 
 
 sub tlock_release( $label , $token ) {
 # Remove the lock.
-    $take_master->( $label ) || return;
+    take_master( $label ) || return;
     my $t = tlock_token($label);
     if ($token == $t) {
-        my $d = $tdn->($label);
+        my $d = tdn($label);
         rmdir $d.'/d' if -e $d.'/d';
         rmdir $d      if -e $d;
         };
-    $release_master->( $label );
+    release_master( $label );
     return 1;
     };
 
@@ -268,7 +261,7 @@ sub tlock_taken( $label ) {
 
 sub tlock_expiry( $label ) {
 # Timestamp for when the lock expires.
-    my $d = $tdn->($label);
+    my $d = tdn($label);
     return if not -e $d;
     my $t = (stat($d))[9] + (stat($d.'/d'))[9];
     $t = undef if $t < time;
@@ -297,18 +290,18 @@ sub tlock_tstart( $label ) {
 
 sub tlock_release_careless( $label ) {
 # Remove the lock without caring about the token.
-    $take_master->( $label ) || return;
-    my $d = $tdn->($label);
+    take_master( $label ) || return;
+    my $d = tdn($label);
     rmdir $d.'/d' if -e $d.'/d';
     rmdir $d      if -e $d;
-    $release_master->( $label );
+    release_master( $label );
     return 1;
     };
 
 
 sub tlock_token( $label ) {
 # Token associated with the lock.
-    my $d = $tdn->($label);
+    my $d = tdn($label);
     return if not -e $d;
     return if tlock_expiry($label) < time; # timed out
     return (stat($d))[9];
@@ -326,7 +319,7 @@ Sys::Tlock - Locking with timeouts.
 
 =head1 VERSION
 
-1.02
+1.03
 
 =head1 SYNOPSIS
 
@@ -393,7 +386,7 @@ The configuration parameters are set using this process:
 
 On top of this, you can import the $dir, $marker and $patience variables and change them in your script. But that is a recipe for disaster, so know what you do, if you go that way.
 
-Configuration files must start with a "tlock 0" line. Empty lines are allowed and so are comments starting with the # character. There are three directives:
+Configuration files must start with a "tlock 1" line. Empty lines are allowed and so are comments starting with the # character. There are three directives:
 
 C<dir> For setting the lock directory. Write the full path.
 
@@ -401,7 +394,7 @@ C<marker> For the marker (prefix) that all tlock directory names will get.
 
 C<patience> For the time that the take method will wait for a lock release.
 
-    tlock 0
+    tlock 1
     # Example configuration file for tlock.
     dir      /var/loglocks/
     patience 7.5
@@ -557,4 +550,3 @@ https://www.apache.org/licenses/LICENSE-2.0.txt
 =cut
 
 # --------------------------------------------------------------------------- #
-
