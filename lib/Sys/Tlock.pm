@@ -10,7 +10,7 @@ use experimental qw(signatures);
 use strict;
 # use Exporter qw(import);
 
-our $VERSION = 1.03;
+our $VERSION = 1.04;
 
 use File::Basename qw(basename dirname);
 use Time::HiRes qw(sleep);
@@ -46,10 +46,11 @@ our $patience;
 
 my $home = $Sys::Tlock::Config::home;
 
-
 my sub pnorm( $p ) {
-    return $p =~ s/([^\/])$/$1\//r;
+    return if not defined $p;
+    return ($p =~ s/(?<!\/)$/\//r);
     };
+
 
 
 my $conf_file;
@@ -138,7 +139,7 @@ sub import {
             die 'No '.$_.' value is given.' if scalar @_ == 0;
             $imports--;
             if    ( $_ eq 'conf' )     { $conf_file = shift; }
-            elsif ( $_ eq 'dir' )      { $dir = shift; }
+            elsif ( $_ eq 'dir' )      { $dir = pnorm(shift); }
             elsif ( $_ eq 'marker' )   { $marker = shift; }
             elsif ( $_ eq 'patience' ) { $patience = shift; };
             };
@@ -319,7 +320,7 @@ Sys::Tlock - Locking with timeouts.
 
 =head1 VERSION
 
-1.03
+1.04
 
 =head1 SYNOPSIS
 
