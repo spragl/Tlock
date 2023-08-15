@@ -54,6 +54,7 @@ $class->new(
     create_readme       => 0 ,
     requires            => {
         'File::Basename' => '0' ,
+        'Getopt::Std'    => '0' ,
         'Time::HiRes'    => '0' ,
         } ,
     configure_requires => {

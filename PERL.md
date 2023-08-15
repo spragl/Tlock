@@ -4,71 +4,81 @@ Sys::Tlock - Locking with timeouts.
 
 # VERSION
 
-1.04
+1.10
 
 # SYNOPSIS
 
-    use Sys::Tlock dir => '/var/myscript/locks/' , qw(tlock_take $patience);
+    use Sys::Tlock;
 
-    print "tlock patience is ${patience}\n";
-
-    # taking a tlock for 5 minutes
-    tlock_take('logwork',300) || die 'Failed taking the tlock.';
+    # Taking a tlock for 5 minutes, in that diectory.
+    tlock_take('maint',300,dir=>'/var/logsystem/locks/')
+      or die 'Failed taking the tlock.';
     my $token = $_;
 
     move_old_index();
 
-    # hand over to that other script
-    exec( "/usr/local/logrotate/logrotate.pl" , $token );
+    # Hand over to that other script.
+    exec( '/usr/local/logrotate/logrotate.pl' , $token );
 
     -----------------------------------------------------------
 
-    use Sys::Tlock;
-    # /etc/tlock.conf sets dir to "/var/myscript/locks/"
+    use Sys::Tlock
+        dir => '/var/logsystem/locks/' ,
+        owner => scalar getpwnam('logsystem') ,
+        qw(tlock_release tlock_renew $patience);
 
-    # checking lock is alive
+    print "tlock patience is ${patience}\n";
+
+    # Checking lock is alive.
     my $t = $ARGV[0];
-    die 'Tlock not taken.' if not tlock_alive('logwork',$t);
+    die 'Tlock not taken.' if not tlock_alive('maint',$t);
 
-    # Make time for the fancy rotation task.
-    tlock_renew('logwork',600);
-
+    # Make time for fancy rotation task.
+    tlock_renew('maint',600);
     do_fancy_log_rotation(547);
+
+    # Call another script that requires this lock.
     system( './clean-up.sh' , $t );
 
-    # releasing the lock
-    tlock_release('logwork',$t);
+    # Releasing the lock.
+    tlock_release('maint',$t);
 
 # DESCRIPTION
 
 This module is handling tlocks, advisory locks with timeouts.
 
-They are implemented as simple directories that are created and deleted in the lock directory.
+It is designed to allow separate programs to use the same tlocks between them. Even programs written in different languages. To do this safely, tlocks are paired with a lock token.
 
-A distant predecessor to this module was written many years ago as a kludge to make locking work properly on a Windows server. But it turned out to be very handy to have tlocks in the filesystem, giving you an at-a-glance overview of them. And giving the non-scripting sysadmins easy access to view and manipulate them.
+The tlocks are simply living in a lock directory in the filesystem. A distant predecessor to this module was written as a kludge to make locking work properly on a Windows server. But it turned out to be very handy to have tlocks in the filesystem, giving you an at-a-glance overview of them. And giving the non-scripting sysadmins easy access to view and manipulate them.
 
-The module is designed to allow separate programs to use the same tlocks between them. Even programs written in different languages. To do this safely, tlocks are paired with a lock token.
+## ERRORS
+
+The module might die on compile-time errors. It will not die on runtime errors. Runtime errors might return error values, might warn or might be ignored, whatever should be the most sensible for the particular error.
 
 ## CONFIGURATION
 
-The configuration parameters are set using this process:
+Each configuration parameter is set by the top most line that apply:
 
-- 1. Directly in the use statement of your script, with keys "dir", "marker" and "patience".
-- 2. Configuration file given by a "conf" key in the use statement of your script.
-- 3. Environment variables "tlock\_dir", "tlock\_marker" and "tlock\_patience".
-- 4. Configuration file given by the environment variable "tlock\_conf".
-- 5. Configuration file "/etc/tlock.conf".
-- 6. Default configuration.
+- 1. In a call, as named parameter with name "dir", "marker", "owner" or "patience".
+- 2. Configuration file given in a call by a named parameter with the name "conf".
+- 3. Directly in the use statement of your script, with key "dir", "marker", "owner" or "patience".
+- 4. Configuration file given by a "conf" key in the use statement of your script.
+- 5. Environment variable "tlock\_dir", "tlock\_marker", "tlock\_owner" or "tlock\_patience".
+- 6. Configuration file given by the environment variable "tlock\_conf".
+- 7. Configuration file "/etc/tlock.conf".
+- 8. Default configuration.
 
-On top of this, you can import the $dir, $marker and $patience variables and change them in your script. But that is a recipe for disaster, so know what you do, if you go that way.
+On top of this, you can import the $dir, $marker, $owner and $patience variables and change them in your script. But that is a recipe for disaster, so know what you do, if you go that way.
 
-Configuration files must start with a "tlock 1" line. Empty lines are allowed and so are comments starting with the # character. There are three directives:
+Configuration files must start with a "tlock 1" line. Empty lines are allowed and so are comments starting with the # character. There are four directives:
 
 `dir` For setting the lock directory. Write the full path.
 
 `marker` For the marker (prefix) that all tlock directory names will get.
 
-`patience` For the time that the take method will wait for a lock release.
+`owner` For the UID of the owner that will be set for tlock directories.
+
+`patience` For the time that a call will wait for a lock release.
 
     tlock 1
     # Example configuration file for tlock.
@@ -95,8 +105,9 @@ Now both script2 and script3 "have" lockA!
 
 Each tlock is a subdirectory of the lock directory. Their names are "${marker}.${label}". The default value for $marker is "tlock".
 
-Each of the tlock directories has a sub directory named "d". The mtimes of these two directories saves the token and the timeout.
-There also are some very shortlived directories named "${marker}\_.${label}". They are per label master locks. They help making changes to the normal locks atomic.
+All the data for a tlock is in its directory. If it is removed from the lock directory, the tlock is released. If it is moved back in, it is alive again (unless it has timed out). If too much playing around has messed up the lock directory, running tlock\_zing on it cleans it up.
+
+The lock directory also contains shortlived directories named "${marker}\_.${label}". They are per label master locks that help to make changes to the normal locks atomic.
 
 # FUNCTIONS AND VARIABLES
 
@@ -115,17 +126,16 @@ Loaded on demand:
 [tlock\_token](#tlock_token-label),
 [$dir](#dir),
 [$marker](#marker),
+[$owner](#owner),
 [$patience](#patience)
 
 - tlock\_take( $label , $timeout )
 
-    Take the tlock with the given label, and set its timeout. The call returns the associated token.
+    Take the tlock with the given label, and set its timeout. The call returns the associated token. The token value is also assigned to the $\_ variable.
 
     Labels can be any non-empty string consisting of letters a-z or A-Z, digits 0-9, dashes "-", underscores "\_" and dots "." (PCRE: \[a-zA-Z0-9\\-\\\_\\.\]+)
 
-    It is possible to set a per call special patience value, by adding it as a third variable, like this: tlock\_take( 'busylock' , $t , 600 )
-
-    The token value is also assigned to the $\_ variable.
+    For backwards compatibility, it is possible to write tlock\_take($l,$t,patience => $p) as tlock\_take($l,$t,$p) instead. But it is deprecated and will issue a warning.
 
 - tlock\_renew( $label , $token , $timeout )
 
@@ -185,15 +195,29 @@ Loaded on demand:
 
     Only loaded on demand.
 
+- $owner
+
+    The UID of the owner of the tlocks.
+
+    Will be silently ignored if it cannot be set.
+
+    Default value is -1. Which means the owner running the script.
+
+    Only loaded on demand.
+
 - $patience
 
-    Patience is the time a method will try to take or change a tlock, before it gives up. For example when tlock\_take tries to take a tlock that is already taken, it is the number of seconds it should wait for that tlock to be released before giving up.
+    Patience is the time a call will try to take or change a tlock, before it gives up. For example when tlock\_take tries to take a tlock that is already taken, it is the number of seconds it should wait for that tlock to be released before giving up.
 
     Dont confuse patience with timeout.
 
     Default patience value is 2.5 seconds.
 
     Only loaded on demand.
+
+## NAMED PARAMETERS
+
+All the tlock subroutines can be given optional named parameters. They must be written after the mandatory parameters. The names can be "conf", "dir", "marker", "owner" and "patience". See the [CONFIGURATION](#configuration) chapter for more details.
 
 # DEPENDENCIES
 
@@ -218,3 +242,15 @@ flock
 Licensed under the Apache License, version 2.0
 
 https://www.apache.org/licenses/LICENSE-2.0.txt
+
+# POD ERRORS
+
+Hey! **The above document had some coding errors, which are explained below:**
+
+- Around line 737:
+
+    You forgot a '=back' before '=head2'
+
+- Around line 741:
+
+    &#x3d;back without =over

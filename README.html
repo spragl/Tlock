@@ -39,8 +39,8 @@ tlock release 'logwork' $token
 <p>There are a number of ways tlock parameters can be set, The prioritized list is:</p>
 
 <ol>
-<li><p>Directly on the command line with options "-d", "-m" and "-p".</p></li>
-<li><p>Environment variables "tlock<em>dir", "tlock</em>marker" and "tlock_patience".</p></li>
+<li><p>Directly on the command line with options "-d", "-m", "-o" and "-p".</p></li>
+<li><p>Environment variables "tlock<em>dir", "tlock</em>marker", "tlock<em>owner" and "tlock</em>patience".</p></li>
 <li><p>Configuration file given by the environment variable "tlock_conf".</p></li>
 <li><p>Configuration file "/etc/tlock.conf".</p></li>
 <li><p>Default configuration.</p></li>
@@ -50,8 +50,9 @@ tlock release 'logwork' $token
 
 <p>Each tlock is a subdirectory of the lock directory. Their names are "$marker.$label". The default value for $marker is "tlock".</p>
 
-<p>Each of the tlock directories has a sub directory named "d". The mtimes of these two directories saves the token and the timeout.
-There also are some very shortlived directories named "$marker_.$label". They are per label master locks. They help making changes to the normal locks atomic.</p>
+<p>All the data for a tlock is in its directory. If it is removed from the lock directory, the tlock is released. If it is moved back in, it is alive again (unless it has timed out). If too much playing around has messed up the lock directory, running tlock_zing on it cleans it up.</p>
+
+<p>The lock directory also contains shortlived directories named "$marker_.$label". They are per label master locks that help to make changes to the normal locks atomic.</p>
 
 <h2>Command line</h2>
 
@@ -65,15 +66,17 @@ There also are some very shortlived directories named "$marker_.$label". They ar
 
 <p>-m &lt;m&gt;  Set marker to &lt;m&gt;.</p>
 
+<p>-o &lt;o&gt;  Set tlock owner to &lt;o&gt;.</p>
+
 <p>-p &lt;p&gt;  Set patience to &lt;p&gt;.</p>
 
 <p>-V      Show the version.</p>
 
 <h2>Commands</h2>
 
-<p><strong>tlock take &lt;label&gt; &lt;timeout&gt; &lbrack;&lt;patience&gt;&rbrack;</strong></p>
+<p><strong>tlock take &lt;label&gt; &lt;timeout&gt;</strong></p>
 
-<p>Takes the specified tlock if possible. Returns the token value.</p>
+<p>Takes the specified tlock if possible. Prints the token value.</p>
 
 <p><strong>tlock renew &lt;label&gt; &lt;token&gt; &lt;timeout&gt;</strong></p>
 
@@ -93,7 +96,7 @@ There also are some very shortlived directories named "$marker_.$label". They ar
 
 <p><strong>tlock expiry &lt;label&gt;</strong></p>
 
-<p>Returns the time when the tlock with the given label will expire.</p>
+<p>Prints the epoch time when the tlock with the given label will expire.</p>
 
 <p><strong>tlock zing</strong></p>
 
@@ -110,6 +113,14 @@ There also are some very shortlived directories named "$marker_.$label". They ar
 <p>The common prefix of the directory names used for tlocks.</p>
 
 <p>Prefixes can be any non-empty string consisting of letters a-z or A-Z, digits 0-9, dashes "-" and underscores "_" (PCRE: [a-zA-Z0-9-_]+). First character has to be a letter, and last character a letter or digit.</p>
+
+<p><strong>owner</strong></p>
+
+<p>The UID of the owner of the tlocks.</p>
+
+<p>Will be silently ignored if it cannot be set.</p>
+
+<p>Default value is -1. Which means the owner running the script.</p>
 
 <p><strong>patience</strong></p>
 

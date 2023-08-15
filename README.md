@@ -37,9 +37,9 @@ A distant predecessor was written many years ago as a kludge to make locking wor
 
 There are a number of ways tlock parameters can be set, The prioritized list is:
 
-1. Directly on the command line with options "-d", "-m" and "-p".
+1. Directly on the command line with options "-d", "-m", "-o" and "-p".
 
-1. Environment variables "tlock_dir", "tlock_marker" and "tlock_patience".
+1. Environment variables "tlock_dir", "tlock_marker", "tlock_owner" and "tlock_patience".
 
 1. Configuration file given by the environment variable "tlock_conf".
 
@@ -51,8 +51,9 @@ There are a number of ways tlock parameters can be set, The prioritized list is:
 
 Each tlock is a subdirectory of the lock directory. Their names are "$marker.$label". The default value for $marker is "tlock".
 
-Each of the tlock directories has a sub directory named "d". The mtimes of these two directories saves the token and the timeout.
-There also are some very shortlived directories named "$marker_.$label". They are per label master locks. They help making changes to the normal locks atomic.
+All the data for a tlock is in its directory. If it is removed from the lock directory, the tlock is released. If it is moved back in, it is alive again (unless it has timed out). If too much playing around has messed up the lock directory, running tlock_zing on it cleans it up.
+
+The lock directory also contains shortlived directories named "$marker_.$label". They are per label master locks that help to make changes to the normal locks atomic.
 
 ## Command line
 
@@ -66,15 +67,17 @@ tlock &lbrack;-&lt;option&gt; &lbrack;parameter&rbrack;&rbrack; &lt;command&gt; 
 
 -m &lt;m&gt;  Set marker to &lt;m&gt;.
 
+-o &lt;o&gt;  Set tlock owner to &lt;o&gt;.
+
 -p &lt;p&gt;  Set patience to &lt;p&gt;.
 
 -V      Show the version.
 
 ## Commands
 
-**tlock take &lt;label&gt; &lt;timeout&gt; &lbrack;&lt;patience&gt;&rbrack;**
+**tlock take &lt;label&gt; &lt;timeout&gt;**
 
-Takes the specified tlock if possible. Returns the token value.
+Takes the specified tlock if possible. Prints the token value.
 
 **tlock renew &lt;label&gt; &lt;token&gt; &lt;timeout&gt;**
 
@@ -94,7 +97,7 @@ Returns true if any tlock with the given label, is alive.
 
 **tlock expiry &lt;label&gt;**
 
-Returns the time when the tlock with the given label will expire.
+Prints the epoch time when the tlock with the given label will expire.
 
 **tlock zing**
 
@@ -111,6 +114,14 @@ The directory containing the tlocks.
 The common prefix of the directory names used for tlocks.
 
 Prefixes can be any non-empty string consisting of letters a-z or A-Z, digits 0-9, dashes "-" and underscores "_" (PCRE: [a-zA-Z0-9\-\_]+). First character has to be a letter, and last character a letter or digit.
+
+**owner**
+
+The UID of the owner of the tlocks.
+
+Will be silently ignored if it cannot be set.
+
+Default value is -1. Which means the owner running the script.
 
 **patience**
 
